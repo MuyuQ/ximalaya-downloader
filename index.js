@@ -117,20 +117,23 @@ export async function downloadSound(soundId, options = {}) {
     
     // 分析音频信息
     const soundInfo = await analyzeSound(soundId);
-    
-    if (!soundInfo.success) {
-      return {
-        success: false,
-        error: `获取音频信息失败: ${soundInfo.error}`
-      };
+    if (!soundInfo) {
+      return { success: false, error: '获取音频信息失败' };
     }
-    
-    // 下载音频
+    const quality = options.quality || 'high';
+    const preferredUrl =
+      (quality === 'high' && (soundInfo.urls.AI || soundInfo.urls.M4A_128 || soundInfo.urls.MP3_64)) ||
+      (quality === 'medium' && (soundInfo.urls.M4A_128 || soundInfo.urls.MP3_64 || soundInfo.urls.MP3_32)) ||
+      (quality === 'low' && (soundInfo.urls.MP3_64 || soundInfo.urls.MP3_32)) ||
+      Object.values(soundInfo.urls)[0];
+    if (!preferredUrl) {
+      return { success: false, error: '未找到可用的下载链接' };
+    }
     const downloadResult = await downloadSoundWithNaming(
-      soundInfo.data,
-      options.quality || 'high',
+      preferredUrl,
+      soundInfo.title,
       options.path,
-      options.addSequenceNumber || false
+      { addNumber: options.addSequenceNumber || false }
     );
     
     return downloadResult;
@@ -185,29 +188,25 @@ export async function downloadAlbum(albumId, options = {}) {
     
     // 分析专辑信息
     const albumInfo = await analyzeAlbum(albumId);
-    
-    if (!albumInfo.success) {
-      return {
-        success: false,
-        error: `获取专辑信息失败: ${albumInfo.error}`
-      };
+    if (!albumInfo) {
+      return { success: false, error: '获取专辑信息失败' };
     }
-    
-    // 获取音频列表
-    let sounds = albumInfo.data.sounds;
+    let tracks = albumInfo.tracks || [];
     
     // 应用下载范围
     if (options.range && Array.isArray(options.range) && options.range.length === 2) {
       const [start, end] = options.range;
-      sounds = sounds.slice(start - 1, end);
+      tracks = tracks.slice(start - 1, end);
     }
     
     // 下载音频
+    const sounds = tracks.map(t => ({ id: t.id, title: t.title, url: t.url, index: t.index }));
     const downloadResult = await downloadSounds(
       sounds,
-      options.quality || 'high',
       options.path,
-      options.addSequenceNumber !== false // 默认为true
+      {
+        addNumber: options.addSequenceNumber !== false,
+      }
     );
     
     return downloadResult;

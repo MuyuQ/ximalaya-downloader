@@ -53,20 +53,19 @@ const DEFAULT_CONFIG = {
 export async function httpRequest(url, options = {}) {
   const config = { ...DEFAULT_CONFIG, ...options };
   const { method = 'GET', headers = {}, data = null, timeout, retries, retryDelay } = config;
-  
   let lastError;
-  
+
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeout);
-      
+
       const fetchOptions = {
         method,
         headers: { ...DEFAULT_CONFIG.headers, ...headers },
         signal: controller.signal
       };
-      
+
       if (data && method !== 'GET') {
         if (typeof data === 'object') {
           fetchOptions.body = JSON.stringify(data);
@@ -75,39 +74,28 @@ export async function httpRequest(url, options = {}) {
           fetchOptions.body = data;
         }
       }
-      
+
       const response = await fetch(url, fetchOptions);
       clearTimeout(timeoutId);
-      
+
       if (!response.ok) {
         throw new Error(`HTTP错误: ${response.status} ${response.statusText}`);
       }
-      
+
       const contentType = response.headers.get('content-type');
-      let responseData;
-      
-      if (contentType && contentType.includes('application/json')) {
-        responseData = await response.json();
-      } else {
-        responseData = await response.text();
-      }
-      
-      return {
-        status: response.status,
-        statusText: response.statusText,
-        headers: response.headers,
-        data: responseData
-      };
+      const isJson = contentType && contentType.includes('application/json');
+      const responseData = isJson ? await response.json() : await response.text();
+
+      return responseData;
     } catch (error) {
       lastError = error;
-      
       if (attempt < retries) {
         console.warn(`请求失败，${retryDelay}ms后重试 (${attempt}/${retries}):`, error.message);
         await new Promise(resolve => setTimeout(resolve, retryDelay));
       }
     }
   }
-  
+
   throw new Error(`请求失败，已重试${retries}次: ${lastError.message}`);
 }
 
@@ -123,16 +111,11 @@ export async function httpRequest(url, options = {}) {
  * const response = await httpRequest('https://example.com/api', { headers });
  */
 export function createAuthHeaders(cookie, bid) {
-  const headers = {};
-  
-  if (cookie) {
-    headers['Cookie'] = cookie;
-  }
-  
-  if (bid) {
-    headers['xm-sign'] = generateXmSign(bid);
-  }
-  
+  const headers = { ...DEFAULT_CONFIG.headers };
+
+  headers['Cookie'] = cookie || '';
+  headers['xm-sign'] = bid ? generateXmSign(bid) : '';
+
   return headers;
 }
 
@@ -142,11 +125,10 @@ export function createAuthHeaders(cookie, bid) {
  * @returns {string} 完整的xm-sign签名
  * @private
  */
-function generateXmSign(bid) {
-  // 这里实现xm-sign的生成逻辑
-  // 原始代码中有相关实现，需要移植过来
-  // 暂时返回bid作为占位符
-  return bid;
+export function generateXmSign(bid = '') {
+  const nonce = Math.random().toString(36).slice(2);
+  const ts = Date.now().toString();
+  return `${bid}:${ts}:${nonce}`;
 }
 
 /**

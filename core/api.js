@@ -18,7 +18,7 @@ const API_BASE_URL = 'https://www.ximalaya.com';
 const API_ENDPOINTS = {
   soundInfo: '/revision/play/v1/audio',
   albumInfo: '/revision/album/v1/getTracksList',
-  userInfo: '/revision/user/v1/info'
+  userInfo: '/revision/user/v1/getUserInfo'
 };
 
 /**
@@ -47,16 +47,14 @@ export async function getSoundInfo(soundId, headers, bid) {
   
   try {
     const authHeaders = createAuthHeaders(headers.Cookie, bid);
-    const response = await httpRequest(url, {
+    const data = await httpRequest(url, {
       headers: { ...headers, ...authHeaders },
       retries: 3
     });
-    
-    if (!response.data || response.data.ret !== 200) {
-      throw new Error(`API返回错误: ${response.data ? response.data.msg : '未知错误'}`);
+    if (!data || data.ret !== 200) {
+      throw new Error(`API返回错误: ${data ? data.msg : '未知错误'}`);
     }
-    
-    return response.data.data;
+    return data.data;
   } catch (error) {
     throw new Error(`获取音频信息失败: ${error.message}`);
   }
@@ -89,16 +87,11 @@ export async function getAlbumInfo(albumId, headers, page = 1, pageSize = 30) {
   const url = `${API_BASE_URL}${API_ENDPOINTS.albumInfo}?albumId=${albumId}&pageNum=${page}&pageSize=${pageSize}&sort=1`;
   
   try {
-    const response = await httpRequest(url, {
-      headers,
-      retries: 3
-    });
-    
-    if (!response.data || response.data.ret !== 200) {
-      throw new Error(`API返回错误: ${response.data ? response.data.msg : '未知错误'}`);
+    const data = await httpRequest(url, { headers, retries: 3 });
+    if (!data || data.ret !== 200) {
+      throw new Error(`API返回错误: ${data ? data.msg : '未知错误'}`);
     }
-    
-    return response.data.data;
+    return data.data;
   } catch (error) {
     throw new Error(`获取专辑信息失败: ${error.message}`);
   }
@@ -123,16 +116,11 @@ export async function getUserInfo(headers) {
   const url = `${API_BASE_URL}${API_ENDPOINTS.userInfo}`;
   
   try {
-    const response = await httpRequest(url, {
-      headers,
-      retries: 3
-    });
-    
-    if (!response.data || response.data.ret !== 200) {
-      throw new Error(`API返回错误: ${response.data ? response.data.msg : '未知错误'}`);
+    const data = await httpRequest(url, { headers, retries: 3 });
+    if (!data || data.ret !== 200) {
+      throw new Error(`API返回错误: ${data ? data.msg : '未知错误'}`);
     }
-    
-    return response.data.data;
+    return data.data;
   } catch (error) {
     throw new Error(`获取用户信息失败: ${error.message}`);
   }

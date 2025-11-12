@@ -141,55 +141,47 @@ export function validateConfig(config) {
   if (!config || typeof config !== 'object') {
     throw new Error('配置必须是对象');
   }
-  
+
   const validatedConfig = { ...config };
-  
-  // 验证cookie
+  const errors = [];
+
   if (typeof validatedConfig.cookie !== 'string') {
     validatedConfig.cookie = '';
   }
-  
-  // 验证path
   if (typeof validatedConfig.path !== 'string' || validatedConfig.path.trim() === '') {
     validatedConfig.path = DEFAULT_CONFIG.path;
+    errors.push('path');
   }
-  
-  // 验证bid
   if (typeof validatedConfig.bid !== 'string') {
     validatedConfig.bid = '';
   }
-  
-  // 验证quality
   const validQualities = ['low', 'medium', 'high'];
   if (!validQualities.includes(validatedConfig.quality)) {
     validatedConfig.quality = DEFAULT_CONFIG.quality;
+    errors.push('quality');
   }
-  
-  // 验证addSequenceNumber
   if (typeof validatedConfig.addSequenceNumber !== 'boolean') {
     validatedConfig.addSequenceNumber = DEFAULT_CONFIG.addSequenceNumber;
   }
-  
-  // 验证maxRetries
   if (typeof validatedConfig.maxRetries !== 'number' || validatedConfig.maxRetries < 0) {
     validatedConfig.maxRetries = DEFAULT_CONFIG.maxRetries;
+    errors.push('maxRetries');
   }
-  
-  // 验证retryDelay
   if (typeof validatedConfig.retryDelay !== 'number' || validatedConfig.retryDelay < 0) {
     validatedConfig.retryDelay = DEFAULT_CONFIG.retryDelay;
+    errors.push('retryDelay');
   }
-  
-  // 验证concurrentDownloads
   if (typeof validatedConfig.concurrentDownloads !== 'number' || validatedConfig.concurrentDownloads < 1) {
     validatedConfig.concurrentDownloads = DEFAULT_CONFIG.concurrentDownloads;
+    errors.push('concurrentDownloads');
   }
-  
-  // 验证userAgent
   if (typeof validatedConfig.userAgent !== 'string' || validatedConfig.userAgent.trim() === '') {
     validatedConfig.userAgent = DEFAULT_CONFIG.userAgent;
+    errors.push('userAgent');
   }
-  
+
+  validatedConfig.isValid = errors.length === 0;
+  validatedConfig.errors = errors;
   return validatedConfig;
 }
 
@@ -216,11 +208,7 @@ export async function checkConfig(config) {
     
     // 检查cookie和bid是否有效
     if (!validatedConfig.cookie || !validatedConfig.bid) {
-      return {
-        valid: true,
-        needLogin: true,
-        error: 'cookie和bid不能为空，请先登录'
-      };
+      return { valid: true, isValid: true, needLogin: true, error: 'cookie和bid不能为空，请先登录', errors: [] };
     }
     
     // 这里可以添加更多的验证逻辑，例如：
@@ -233,34 +221,22 @@ export async function checkConfig(config) {
     const isValid = await validateCredentials(validatedConfig.cookie, validatedConfig.bid);
     
     if (!isValid) {
-      return {
-        valid: false,
-        error: 'cookie或bid无效，请重新登录'
-      };
+      return { valid: false, isValid: false, error: 'cookie或bid无效，请重新登录', errors: ['cookie', 'bid'] };
     }
     
     // 检查下载路径
     const pathValid = await validateDownloadPath(validatedConfig.path);
     
     if (!pathValid) {
-      return {
-        valid: false,
-        error: '下载路径无效或不可写'
-      };
+      return { valid: false, isValid: false, error: '下载路径无效或不可写', errors: ['path'] };
     }
     
     // 获取用户名
     const username = await getUsername(validatedConfig.cookie, validatedConfig.bid);
     
-    return {
-      valid: true,
-      username: username || '未知用户'
-    };
+    return { valid: true, isValid: true, username: username || '未知用户', errors: [] };
   } catch (error) {
-    return {
-      valid: false,
-      error: error.message
-    };
+    return { valid: false, isValid: false, error: error.message, errors: ['unknown'] };
   }
 }
 

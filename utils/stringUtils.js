@@ -47,18 +47,17 @@ export function replaceInvalidChars(filename, replacement = '_') {
  */
 export function formatTime(seconds, showHours = false) {
   if (typeof seconds !== 'number' || isNaN(seconds) || seconds < 0) {
-    return '0:00';
+    return '00:00';
   }
-  
+
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   const secs = Math.floor(seconds % 60);
-  
+
   if (showHours || hours > 0) {
-    return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  } else {
-    return `${minutes}:${secs.toString().padStart(2, '0')}`;
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   }
+  return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 }
 
 /**
@@ -76,16 +75,13 @@ export function formatFileSize(bytes, decimals = 2) {
   if (typeof bytes !== 'number' || isNaN(bytes) || bytes < 0) {
     return '0 B';
   }
-  
   if (bytes === 0) return '0 B';
-  
   const k = 1024;
   const dm = decimals < 0 ? 0 : decimals;
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
-  
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(k)), sizes.length - 1);
+  const value = (bytes / Math.pow(k, i)).toFixed(dm);
+  return `${value} ${sizes[i]}`;
 }
 
 /**
@@ -272,13 +268,11 @@ export function getFileExtension(filename) {
   if (typeof filename !== 'string') {
     return '';
   }
-  
   const lastDotIndex = filename.lastIndexOf('.');
   if (lastDotIndex === -1 || lastDotIndex === filename.length - 1) {
     return '';
   }
-  
-  return filename.substring(lastDotIndex + 1);
+  return filename.substring(lastDotIndex);
 }
 
 /**
@@ -295,12 +289,10 @@ export function removeFileExtension(filename) {
   if (typeof filename !== 'string') {
     return '';
   }
-  
   const lastDotIndex = filename.lastIndexOf('.');
   if (lastDotIndex === -1) {
     return filename;
   }
-  
   return filename.substring(0, lastDotIndex);
 }
 
@@ -315,22 +307,9 @@ export function removeFileExtension(filename) {
  * const name1 = generateNumberedFilename('audio.mp3', 1); // "01 audio.mp3"
  * const name2 = generateNumberedFilename('audio.mp3', 10, 3); // "010 audio.mp3"
  */
-export function generateNumberedFilename(filename, index, totalDigits = 2) {
-  if (typeof filename !== 'string') {
-    return '';
-  }
-  
-  if (typeof index !== 'number' || index < 0) {
-    index = 0;
-  }
-  
-  if (typeof totalDigits !== 'number' || totalDigits < 1) {
-    totalDigits = 2;
-  }
-  
-  const paddedIndex = index.toString().padStart(totalDigits, '0');
-  const extension = getFileExtension(filename);
-  const nameWithoutExt = removeFileExtension(filename);
-  
-  return `${paddedIndex} ${nameWithoutExt}.${extension}`;
+export function generateNumberedFilename(name, ext, number) {
+  const safeName = typeof name === 'string' ? name : 'file';
+  const safeExt = typeof ext === 'string' ? ext : '';
+  const safeNum = typeof number === 'number' ? number : 0;
+  return `${safeName}_${safeNum}${safeExt}`;
 }

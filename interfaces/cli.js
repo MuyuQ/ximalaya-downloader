@@ -173,8 +173,7 @@ async function handleDownloadSingleSound() {
     console.log('\n音频信息:');
     console.log(`标题: ${soundInfo.title}`);
     console.log(`时长: ${formatTime(soundInfo.duration)}`);
-    console.log(`大小: ${formatFileSize(soundInfo.size)}`);
-    console.log(`是否VIP: ${soundInfo.isVip ? '是' : '否'}`);
+    console.log(`类型: ${soundInfo.type === 'vip' ? 'VIP' : '免费'}`);
     
     // 选择音频质量
     const quality = await selectQuality();
@@ -235,9 +234,7 @@ async function handleDownloadAlbum() {
     // 显示专辑信息
     console.log('\n专辑信息:');
     console.log(`标题: ${albumInfo.title}`);
-    console.log(`作者: ${albumInfo.author}`);
-    console.log(`音频数量: ${albumInfo.sounds.length}`);
-    console.log(`专辑类型: ${albumInfo.type}`);
+    console.log(`音频数量: ${albumInfo.tracks.length}`);
     
     // 判断专辑类型
     const albumType = await judgeAlbum(albumId);
@@ -249,12 +246,12 @@ async function handleDownloadAlbum() {
     
     // 显示音频列表
     console.log('\n音频列表:');
-    albumInfo.sounds.forEach((sound, index) => {
+    albumInfo.tracks.forEach((sound, index) => {
       console.log(`${index + 1}. ${sound.title} (${formatTime(sound.duration)})`);
     });
     
     // 选择下载范围
-    const downloadRange = await selectDownloadRange(albumInfo.sounds.length);
+    const downloadRange = await selectDownloadRange(albumInfo.tracks.length);
     
     if (!downloadRange) {
       console.log('已取消下载');
@@ -283,8 +280,7 @@ async function handleDownloadAlbum() {
       path: config.path,
       quality,
       addSequenceNumber: addSequence,
-      startIndex: downloadRange.start,
-      endIndex: downloadRange.end
+      range: [downloadRange.start, downloadRange.end]
     });
     
     if (result.success) {
@@ -368,6 +364,7 @@ async function handleLogin() {
       console.log(`用户名: ${result.username}`);
     } else {
       console.log(`登录失败: ${result.error}`);
+      console.log('请在浏览器登录后，若仍失败，建议在配置文件中手动填写Cookie与BID。');
     }
   } catch (error) {
     console.error(`登录失败: ${error.message}`);

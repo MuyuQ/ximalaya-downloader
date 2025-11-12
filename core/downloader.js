@@ -170,7 +170,10 @@ export async function downloadSoundWithNaming(url, title, dirPath = './', option
     
     // 添加序号
     if (addNumber && typeof number === 'number' && number >= 0) {
-      fileName = generateNumberedFilename(fileName, number, numberDigits);
+      const hasExt = fileName.includes('.');
+      const base = hasExt ? fileName.substring(0, fileName.lastIndexOf('.')) : fileName;
+      const ext = hasExt ? fileName.substring(fileName.lastIndexOf('.')) : '';
+      fileName = generateNumberedFilename(base, ext, number);
     }
     
     // 添加文件扩展名

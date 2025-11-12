@@ -22,10 +22,11 @@ export async function fileExists(filePath) {
   if (typeof filePath !== 'string' || !filePath) {
     return false;
   }
-  
   try {
-    // 在浏览器环境中，我们无法直接检查文件系统
-    // 这里返回false，实际实现需要根据环境调整
+    if (typeof process !== 'undefined') {
+      const fs = await import('fs');
+      return fs.existsSync(filePath);
+    }
     return false;
   } catch (error) {
     console.error(`检查文件是否存在失败: ${error.message}`);
@@ -50,11 +51,14 @@ export async function createDirectory(dirPath) {
   if (typeof dirPath !== 'string' || !dirPath) {
     return false;
   }
-  
   try {
-    // 在浏览器环境中，我们无法直接创建目录
-    // 这里返回true，实际实现需要根据环境调整
-    console.log(`创建目录: ${dirPath}`);
+    if (typeof process !== 'undefined') {
+      const fs = await import('fs');
+      const path = await import('path');
+      fs.mkdirSync(path.dirname(path.resolve(dirPath)), { recursive: true });
+      fs.mkdirSync(path.resolve(dirPath), { recursive: true });
+      return true;
+    }
     return true;
   } catch (error) {
     console.error(`创建目录失败: ${error.message}`);
@@ -75,10 +79,12 @@ export async function getFileSize(filePath) {
   if (typeof filePath !== 'string' || !filePath) {
     return 0;
   }
-  
   try {
-    // 在浏览器环境中，我们无法直接获取文件大小
-    // 这里返回0，实际实现需要根据环境调整
+    if (typeof process !== 'undefined') {
+      const fs = await import('fs');
+      const stat = fs.statSync(filePath);
+      return stat.size;
+    }
     return 0;
   } catch (error) {
     console.error(`获取文件大小失败: ${error.message}`);
@@ -96,22 +102,11 @@ export async function getFileSize(filePath) {
  * const safeName = generateSafeFilename('音频: "测试"', 'mp3');
  * console.log(safeName); // "音频___测试_.mp3"
  */
-export function generateSafeFilename(filename, extension = 'mp3') {
+export function generateSafeFilename(filename) {
   if (typeof filename !== 'string') {
-    filename = 'untitled';
+    return '';
   }
-  
-  if (typeof extension !== 'string') {
-    extension = 'mp3';
-  }
-  
-  // 清理文件名中的非法字符
-  const cleanName = replaceInvalidChars(filename);
-  
-  // 确保扩展名以点开头
-  const extWithDot = extension.startsWith('.') ? extension : `.${extension}`;
-  
-  return `${cleanName}${extWithDot}`;
+  return replaceInvalidChars(filename);
 }
 
 /**
@@ -125,24 +120,11 @@ export function generateSafeFilename(filename, extension = 'mp3') {
  * const name1 = generateNumberedFilename('audio.mp3', 1); // "01 audio.mp3"
  * const name2 = generateNumberedFilename('audio.mp3', 10, 3); // "010 audio.mp3"
  */
-export function generateNumberedFilename(filename, index, totalDigits = 2) {
-  if (typeof filename !== 'string') {
-    filename = 'untitled.mp3';
-  }
-  
-  if (typeof index !== 'number' || index < 0) {
-    index = 0;
-  }
-  
-  if (typeof totalDigits !== 'number' || totalDigits < 1) {
-    totalDigits = 2;
-  }
-  
-  const paddedIndex = index.toString().padStart(totalDigits, '0');
-  const extension = filename.includes('.') ? filename.substring(filename.lastIndexOf('.')) : '.mp3';
-  const nameWithoutExt = filename.includes('.') ? filename.substring(0, filename.lastIndexOf('.')) : filename;
-  
-  return `${paddedIndex} ${nameWithoutExt}${extension}`;
+export function generateNumberedFilename(name, ext, number) {
+  const safeName = typeof name === 'string' ? name : 'file';
+  const safeExt = typeof ext === 'string' ? ext : '';
+  const safeNum = typeof number === 'number' ? number : 0;
+  return `${safeName}_${safeNum}${safeExt}`;
 }
 
 /**
@@ -158,16 +140,10 @@ export function getDirectoryPath(filePath) {
   if (typeof filePath !== 'string') {
     return '';
   }
-  
-  const lastSlashIndex = Math.max(
-    filePath.lastIndexOf('/'),
-    filePath.lastIndexOf('\\')
-  );
-  
+  const lastSlashIndex = Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\'));
   if (lastSlashIndex === -1) {
-    return '';
+    return '.';
   }
-  
   return filePath.substring(0, lastSlashIndex);
 }
 

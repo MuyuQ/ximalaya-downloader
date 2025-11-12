@@ -8,7 +8,8 @@
     "start": "node index.js",
     "test": "node tests/runner.js",
     "lint": "eslint .",
-    "lint:fix": "eslint . --fix"
+    "lint:fix": "eslint . --fix",
+    "proxy": "node proxy/server.js"
   },
   "keywords": [
     "ximalaya",

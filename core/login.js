@@ -304,26 +304,19 @@ async function validateCredentials(credentials) {
     };
     
     // 发送请求获取用户信息
-    const response = await httpRequest(
-      'https://www.ximalaya.com/revision/user/v1/info',
-      {
-        method: 'GET',
-        headers,
-        timeout: 10000
-      }
-    );
-    
-    if (response.success && response.data) {
+    const data = await httpRequest('https://www.ximalaya.com/revision/user/v1/getUserInfo', {
+      method: 'GET',
+      headers,
+      timeout: 10000
+    });
+
+    if (data && data.ret === 200 && data.data) {
       return {
         success: true,
-        username: response.data.nickname || response.data.mobile || '未知用户'
-      };
-    } else {
-      return {
-        success: false,
-        error: '获取用户信息失败'
+        username: data.data.nickname || data.data.mobile || '未知用户'
       };
     }
+    return { success: false, error: '获取用户信息失败' };
   } catch (error) {
     return {
       success: false,
@@ -391,11 +384,7 @@ export async function checkLoginStatus() {
       bid: config.bid
     });
     
-    return {
-      isLoggedIn: validation.success,
-      username: validation.success ? validation.username : null,
-      error: validation.success ? null : validation.error
-    };
+    return { isLoggedIn: validation.success, username: validation.success ? validation.username : null, error: validation.success ? null : validation.error };
   } catch (error) {
     return {
       isLoggedIn: false,

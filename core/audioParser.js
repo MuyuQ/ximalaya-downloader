@@ -3,8 +3,9 @@
  * 负责解析喜马拉雅音频信息，包括单个音频和专辑信息
  */
 
-import { httpRequest } from '../utils/networkUtils.js';
+import { httpRequest, createAuthHeaders } from '../utils/networkUtils.js';
 import { decryptUrl } from './decryptor.js';
+import { readConfig } from './configManager.js';
 
 /**
  * 音频质量枚举
@@ -50,33 +51,17 @@ export const AudioType = {
  *   console.log('解析音频信息失败');
  * }
  */
-export async function analyzeSound(soundId, headers) {
+export async function analyzeSound(soundId) {
   if (!soundId || typeof soundId !== 'string') {
     console.error('音频ID不能为空');
     return null;
   }
   
-  if (!headers || typeof headers !== 'object') {
-    console.error('请求头不能为空');
-    return null;
-  }
-  
   try {
     const url = `https://www.ximalaya.com/revision/play/v1/audio?id=${soundId}&ptype=1`;
-    const response = await httpRequest({
-      url,
-      method: 'GET',
-      headers,
-      timeout: 10000,
-      retries: 3
-    });
-    
-    if (!response.success) {
-      console.error(`请求音频信息失败: ${response.error}`);
-      return null;
-    }
-    
-    const data = response.data;
+    const config = await readConfig();
+    const headers = createAuthHeaders(config.cookie, config.bid);
+    const data = await httpRequest(url, { method: 'GET', headers, timeout: 10000, retries: 3 });
     
     if (!data || data.ret !== 200 || !data.data) {
       console.error('音频信息响应格式错误');
@@ -147,9 +132,8 @@ export async function analyzeSound(soundId, headers) {
  *   console.log('解析音频信息失败');
  * }
  */
-export async function asyncAnalyzeSound(soundId, headers) {
-  // 这个函数与analyzeSound功能相同，但使用async/await语法
-  return await analyzeSound(soundId, headers);
+export async function asyncAnalyzeSound(soundId) {
+  return await analyzeSound(soundId);
 }
 
 /**
@@ -175,14 +159,9 @@ export async function asyncAnalyzeSound(soundId, headers) {
  *   console.log('解析专辑信息失败');
  * }
  */
-export async function analyzeAlbum(albumId, headers, page = 1, pageSize = 30) {
+export async function analyzeAlbum(albumId, page = 1, pageSize = 30) {
   if (!albumId || typeof albumId !== 'string') {
     console.error('专辑ID不能为空');
-    return null;
-  }
-  
-  if (!headers || typeof headers !== 'object') {
-    console.error('请求头不能为空');
     return null;
   }
   
@@ -196,20 +175,9 @@ export async function analyzeAlbum(albumId, headers, page = 1, pageSize = 30) {
   
   try {
     const url = `https://www.ximalaya.com/revision/album/v1/getTracksList?albumId=${albumId}&pageNum=${page}&pageSize=${pageSize}`;
-    const response = await httpRequest({
-      url,
-      method: 'GET',
-      headers,
-      timeout: 10000,
-      retries: 3
-    });
-    
-    if (!response.success) {
-      console.error(`请求专辑信息失败: ${response.error}`);
-      return null;
-    }
-    
-    const data = response.data;
+    const config = await readConfig();
+    const headers = createAuthHeaders(config.cookie, config.bid);
+    const data = await httpRequest(url, { method: 'GET', headers, timeout: 10000, retries: 3 });
     
     if (!data || data.ret !== 200 || !data.data) {
       console.error('专辑信息响应格式错误');
@@ -274,20 +242,15 @@ export async function analyzeAlbum(albumId, headers, page = 1, pageSize = 30) {
  *   console.log('获取专辑所有音频失败');
  * }
  */
-export async function getAllAlbumTracks(albumId, headers, onProgress) {
+export async function getAllAlbumTracks(albumId, onProgress) {
   if (!albumId || typeof albumId !== 'string') {
     console.error('专辑ID不能为空');
     return null;
   }
   
-  if (!headers || typeof headers !== 'object') {
-    console.error('请求头不能为空');
-    return null;
-  }
-  
   try {
     // 首先获取第一页，确定总页数
-    const firstPage = await analyzeAlbum(albumId, headers, 1, 30);
+    const firstPage = await analyzeAlbum(albumId, 1, 30);
     
     if (!firstPage) {
       return null;
@@ -306,7 +269,7 @@ export async function getAllAlbumTracks(albumId, headers, onProgress) {
     
     // 获取剩余页面的音频
     for (let page = 2; page <= totalPages; page++) {
-      const pageData = await analyzeAlbum(albumId, headers, page, 30);
+      const pageData = await analyzeAlbum(albumId, page, 30);
       
       if (pageData && pageData.tracks) {
         allTracks.push(...pageData.tracks);
@@ -347,33 +310,17 @@ export async function getAllAlbumTracks(albumId, headers, onProgress) {
  *   console.log('判断专辑类型失败');
  * }
  */
-export async function judgeAlbum(albumId, headers) {
+export async function judgeAlbum(albumId) {
   if (!albumId || typeof albumId !== 'string') {
     console.error('专辑ID不能为空');
     return null;
   }
   
-  if (!headers || typeof headers !== 'object') {
-    console.error('请求头不能为空');
-    return null;
-  }
-  
   try {
     const url = `https://www.ximalaya.com/revision/album/v1/getSimple?albumId=${albumId}`;
-    const response = await httpRequest({
-      url,
-      method: 'GET',
-      headers,
-      timeout: 10000,
-      retries: 3
-    });
-    
-    if (!response.success) {
-      console.error(`请求专辑信息失败: ${response.error}`);
-      return null;
-    }
-    
-    const data = response.data;
+    const config = await readConfig();
+    const headers = createAuthHeaders(config.cookie, config.bid);
+    const data = await httpRequest(url, { method: 'GET', headers, timeout: 10000, retries: 3 });
     
     if (!data || data.ret !== 200 || !data.data) {
       console.error('专辑信息响应格式错误');
@@ -416,19 +363,14 @@ export async function judgeAlbum(albumId, headers) {
  *   console.log('音频不可下载');
  * }
  */
-export async function checkSoundDownloadable(soundId, headers) {
+export async function checkSoundDownloadable(soundId) {
   if (!soundId || typeof soundId !== 'string') {
     console.error('音频ID不能为空');
     return false;
   }
   
-  if (!headers || typeof headers !== 'object') {
-    console.error('请求头不能为空');
-    return false;
-  }
-  
   try {
-    const soundInfo = await analyzeSound(soundId, headers);
+    const soundInfo = await analyzeSound(soundId);
     
     if (!soundInfo) {
       return false;
@@ -463,14 +405,9 @@ export async function checkSoundDownloadable(soundId, headers) {
  *   console.log('获取下载链接失败');
  * }
  */
-export async function getSoundDownloadUrl(soundId, headers, quality = AudioQuality.MP3_64) {
+export async function getSoundDownloadUrl(soundId, quality = AudioQuality.MP3_64) {
   if (!soundId || typeof soundId !== 'string') {
     console.error('音频ID不能为空');
-    return null;
-  }
-  
-  if (!headers || typeof headers !== 'object') {
-    console.error('请求头不能为空');
     return null;
   }
   
@@ -480,7 +417,7 @@ export async function getSoundDownloadUrl(soundId, headers, quality = AudioQuali
   }
   
   try {
-    const soundInfo = await analyzeSound(soundId, headers);
+    const soundInfo = await analyzeSound(soundId);
     
     if (!soundInfo) {
       return null;
@@ -511,29 +448,15 @@ export async function getSoundDownloadUrl(soundId, headers, quality = AudioQuali
  *   console.log('未达到每日下载限制');
  * }
  */
-export async function isDailyLimitReached(headers) {
-  if (!headers || typeof headers !== 'object') {
-    console.error('请求头不能为空');
-    return false;
-  }
+export async function isDailyLimitReached() {
   
   try {
     // 尝试获取一个免费音频的信息
-    const response = await httpRequest({
-      url: 'https://www.ximalaya.com/revision/play/v1/audio?id=12345678&ptype=1',
-      method: 'GET',
-      headers,
-      timeout: 10000,
-      retries: 1
-    });
-    
-    if (!response.success) {
-      // 如果请求失败，检查是否是每日限制错误
-      if (response.error && response.error.includes('每日下载')) {
-        return true;
-      }
+    const data = await httpRequest('https://www.ximalaya.com/revision/play/v1/audio?id=12345678&ptype=1', { method: 'GET', retries: 1 });
+    if (!data || data.ret !== 200) {
+      const msg = (data && data.msg) || '';
+      return typeof msg === 'string' && msg.includes('每日下载');
     }
-    
     return false;
   } catch (error) {
     console.error(`检查每日下载限制失败: ${error.message}`);
