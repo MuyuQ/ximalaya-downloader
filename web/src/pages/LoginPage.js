@@ -9,12 +9,10 @@ export function LoginPage() {
   const cfg = getConfig()
   const cookieInput = document.createElement('input')
   cookieInput.placeholder = 'Cookie'
-  cookieInput.style.width = '100%'
   cookieInput.value = cfg.cookie || ''
 
   const bidInput = document.createElement('input')
   bidInput.placeholder = 'BID'
-  bidInput.style.width = '100%'
   bidInput.value = cfg.bid || ''
 
   const saveBtn = document.createElement('button')
@@ -45,10 +43,7 @@ export function LoginPage() {
   summary.textContent = '使用说明与凭证获取'
   guide.appendChild(summary)
   const box = document.createElement('div')
-  box.style.padding = '12px'
-  box.style.background = '#f3f4f6'
-  box.style.border = '1px solid #e5e7eb'
-  box.style.borderRadius = '6px'
+  box.className = 'guide-box'
   box.innerHTML = `
     <p><strong>目的：</strong>在浏览器中请求喜马拉雅接口需要携带 <code>Cookie</code> 与 <code>BID</code> 用于认证。</p>
     <p><strong>获取步骤：</strong></p>

@@ -19,4 +19,14 @@ export function render() {
   app.innerHTML = ''
   const el = Page()
   app.appendChild(el)
+  const current = '#' + path
+  document.querySelectorAll('header nav a').forEach(a => {
+    if (a.getAttribute('href') === current) {
+      a.classList.add('active')
+      a.setAttribute('aria-current', 'page')
+    } else {
+      a.classList.remove('active')
+      a.removeAttribute('aria-current')
+    }
+  })
 }
