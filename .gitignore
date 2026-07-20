@@ -1,0 +1,44 @@
+# Runtime configuration
+config.json
+
+# Encryption key file
+.encryption.key
+
+# Dependencies
+node_modules/
+
+# Downloads directory
+downloads/
+
+# IDE
+.idea/
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test coverage
+coverage/
+
+# Claude/Trae AI directories
+.claude/
+.trae/
+
+# Build artifacts
+dist/
+*.tsbuildinfo
+
+# Temporary files
+*.tmp
+*.temp
+.tmp/
+.temp/
+__pycache__/
+*.pyc
+*.sync-conflict-*
+.venv/
