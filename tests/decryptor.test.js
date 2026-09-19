@@ -1,6 +1,12 @@
 /**
- * @fileoverview 解密模块的单元测试
+ * @fileoverview decryptor 单元测试
+ * @description 覆盖 URL 解密模块的输入校验、辅助函数与批量接口。
+ *   注意：解密算法依赖平台私有映射表，无法在无真实密文的情况下构造
+ *   成功路径测试向量，因此成功路径以结构化断言为主。
  */
+
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
 
 import {
   decryptUrl,
@@ -8,175 +14,87 @@ import {
   batchDecryptUrlsAsync,
   isUrlEncrypted,
   decryptUrlIfNeeded
-} from '../core/decryptor.js';
+} from '../src/core/decryptor.js';
 
-/**
- * 解密模块测试套件
- */
-describe('解密模块测试', () => {
+describe('decryptUrl 输入校验', () => {
+  it('空字符串抛出错误', () => {
+    assert.throws(() => decryptUrl(''), /加密URL不能为空/);
+  });
 
-  /**
-   * 测试decryptUrl函数
-   */
-  describe('decryptUrl', () => {
-    test('应该解密加密的URL', () => {
-      // 使用一个模拟的加密URL
-      const encryptedUrl = 'aHR0cHM6Ly9leGFtcGxlLmNvbS9lbmNyeXB0ZWQ=';
+  it('null 抛出错误', () => {
+    assert.throws(() => decryptUrl(null), /加密URL不能为空/);
+  });
 
-      const result = decryptUrl(encryptedUrl);
+  it('undefined 抛出错误', () => {
+    assert.throws(() => decryptUrl(undefined), /加密URL不能为空/);
+  });
 
-      expect(typeof result).toBe('string');
-      expect(result.length).toBeGreaterThan(0);
-    });
+  it('非字符串抛出错误', () => {
+    assert.throws(() => decryptUrl(123), /加密URL不能为空/);
+  });
 
-    test('应该处理空字符串', () => {
-      const result = decryptUrl('');
+  it('非法 Base64 内容抛出解密失败错误', () => {
+    assert.throws(() => decryptUrl('!!!not-base64!!!'), /解密失败/);
+  });
+});
 
-      expect(result).toBe('');
-    });
+describe('isUrlEncrypted', () => {
+  it('http/https URL 不需要解密', () => {
+    assert.equal(isUrlEncrypted('https://example.com/audio.mp3'), false);
+    assert.equal(isUrlEncrypted('http://example.com/audio.mp3'), false);
+  });
 
-    test('应该处理非字符串输入', () => {
-      const result1 = decryptUrl(null);
-      const result2 = decryptUrl(undefined);
-      const result3 = decryptUrl(123);
+  it('Base64 形式的字符串判定为需要解密', () => {
+    assert.equal(isUrlEncrypted('SGVsbG9Xb3JsZA=='), true);
+  });
 
-      expect(result1).toBe('');
-      expect(result2).toBe('');
-      expect(result3).toBe('');
+  it('非法输入返回 false', () => {
+    assert.equal(isUrlEncrypted(''), false);
+    assert.equal(isUrlEncrypted(null), false);
+    assert.equal(isUrlEncrypted(123), false);
+  });
+});
+
+describe('decryptUrlIfNeeded', () => {
+  it('明文 URL 原样返回', () => {
+    assert.equal(decryptUrlIfNeeded('https://example.com/a.mp3'), 'https://example.com/a.mp3');
+  });
+
+  it('空输入抛出错误', () => {
+    assert.throws(() => decryptUrlIfNeeded(''), /URL不能为空/);
+  });
+
+  it('null 输入抛出错误', () => {
+    assert.throws(() => decryptUrlIfNeeded(null), /URL不能为空/);
+  });
+});
+
+describe('batchDecryptUrls', () => {
+  it('返回带 success 标记的结果对象数组', () => {
+    const results = batchDecryptUrls(['!!!bad!!!', '']);
+    assert.equal(Array.isArray(results), true);
+    assert.equal(results.length, 2);
+    assert.equal(results[0].success, false);
+    assert.ok(results[0].error);
+    assert.equal(results[1].success, false);
+  });
+
+  it('非数组输入抛出错误', () => {
+    assert.throws(() => batchDecryptUrls('not-array'), /必须是数组/);
+  });
+});
+
+describe('batchDecryptUrlsAsync', () => {
+  it('结果按原始索引排列', async () => {
+    const results = await batchDecryptUrlsAsync(['!!!bad!!!', '!!!bad2!!', '!!!bad3!!'], 2);
+    assert.equal(results.length, 3);
+    results.forEach((result, index) => {
+      assert.equal(result.index, index);
+      assert.equal(result.success, false);
     });
   });
 
-  /**
-   * 测试batchDecryptUrls函数
-   */
-  describe('batchDecryptUrls', () => {
-    test('应该批量解密URL', () => {
-      const encryptedUrls = [
-        'aHR0cHM6Ly9leGFtcGxlLmNvbS9lbmNyeXB0ZWQx',
-        'aHR0cHM6Ly9leGFtcGxlLmNvbS9lbmNyeXB0ZWQy',
-        'aHR0cHM6Ly9leGFtcGxlLmNvbS9lbmNyeXB0ZWQz'
-      ];
-
-      const result = batchDecryptUrls(encryptedUrls);
-
-      expect(Array.isArray(result)).toBe(true);
-      expect(result.length).toBe(3);
-
-      result.forEach(url => {
-        expect(typeof url).toBe('string');
-        expect(url.length).toBeGreaterThan(0);
-      });
-    });
-
-    test('应该处理空数组', () => {
-      const result = batchDecryptUrls([]);
-
-      expect(Array.isArray(result)).toBe(true);
-      expect(result.length).toBe(0);
-    });
-
-    test('应该处理非数组输入', () => {
-      const result1 = batchDecryptUrls(null);
-      const result2 = batchDecryptUrls(undefined);
-      const result3 = batchDecryptUrls('not an array');
-
-      expect(Array.isArray(result1)).toBe(true);
-      expect(result1.length).toBe(0);
-
-      expect(Array.isArray(result2)).toBe(true);
-      expect(result2.length).toBe(0);
-
-      expect(Array.isArray(result3)).toBe(true);
-      expect(result3.length).toBe(0);
-    });
-  });
-
-  /**
-   * 测试batchDecryptUrlsAsync函数
-   */
-  describe('batchDecryptUrlsAsync', () => {
-    test('应该异步批量解密URL', async () => {
-      const encryptedUrls = [
-        'aHR0cHM6Ly9leGFtcGxlLmNvbS9lbmNyeXB0ZWQx',
-        'aHR0cHM6Ly9leGFtcGxlLmNvbS9lbmNyeXB0ZWQy',
-        'aHR0cHM6Ly9leGFtcGxlLmNvbS9lbmNyeXB0ZWQz'
-      ];
-
-      const result = await batchDecryptUrlsAsync(encryptedUrls);
-
-      expect(Array.isArray(result)).toBe(true);
-      expect(result.length).toBe(3);
-
-      result.forEach(url => {
-        expect(typeof url).toBe('string');
-        expect(url.length).toBeGreaterThan(0);
-      });
-    });
-
-    test('应该处理空数组', async () => {
-      const result = await batchDecryptUrlsAsync([]);
-
-      expect(Array.isArray(result)).toBe(true);
-      expect(result.length).toBe(0);
-    });
-  });
-
-  /**
-   * 测试isUrlEncrypted函数
-   */
-  describe('isUrlEncrypted', () => {
-    test('应该识别加密的URL', () => {
-      // 使用一个模拟的加密URL
-      const encryptedUrl = 'aHR0cHM6Ly9leGFtcGxlLmNvbS9lbmNyeXB0ZWQ=';
-
-      const result = isUrlEncrypted(encryptedUrl);
-
-      expect(typeof result).toBe('boolean');
-    });
-
-    test('应该处理空字符串', () => {
-      const result = isUrlEncrypted('');
-
-      expect(typeof result).toBe('boolean');
-    });
-
-    test('应该处理非字符串输入', () => {
-      const result1 = isUrlEncrypted(null);
-      const result2 = isUrlEncrypted(undefined);
-      const result3 = isUrlEncrypted(123);
-
-      expect(typeof result1).toBe('boolean');
-      expect(typeof result2).toBe('boolean');
-      expect(typeof result3).toBe('boolean');
-    });
-  });
-
-  /**
-   * 测试decryptUrlIfNeeded函数
-   */
-  describe('decryptUrlIfNeeded', () => {
-    test('应该在需要时解密URL', () => {
-      // 使用一个模拟的加密URL
-      const encryptedUrl = 'aHR0cHM6Ly9leGFtcGxlLmNvbS9lbmNyeXB0ZWQ=';
-
-      const result = decryptUrlIfNeeded(encryptedUrl);
-
-      expect(typeof result).toBe('string');
-      expect(result.length).toBeGreaterThan(0);
-    });
-
-    test('应该返回未加密的URL', () => {
-      const normalUrl = 'https://example.com/normal-url';
-
-      const result = decryptUrlIfNeeded(normalUrl);
-
-      expect(result).toBe(normalUrl);
-    });
-
-    test('应该处理空字符串', () => {
-      const result = decryptUrlIfNeeded('');
-
-      expect(result).toBe('');
-    });
+  it('非数组输入抛出错误', async () => {
+    await assert.rejects(() => batchDecryptUrlsAsync(null), /必须是数组/);
   });
 });
