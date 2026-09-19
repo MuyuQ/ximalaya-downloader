@@ -8,11 +8,7 @@ import {
   getFileSize,
   generateSafeFilename,
   generateNumberedFilename,
-  getDirectoryPath,
-  getFilename,
   joinPath,
-  normalizePath,
-  downloadFile,
   readFile,
   writeFile
 } from '../utils/fileUtils.js';
@@ -21,7 +17,7 @@ import {
  * 文件工具模块测试套件
  */
 describe('文件工具模块测试', () => {
-  
+
   /**
    * 测试fileExists函数
    */
@@ -31,7 +27,7 @@ describe('文件工具模块测试', () => {
       expect(typeof fileExists('test.txt')).toBe('boolean');
     });
   });
-  
+
   /**
    * 测试createDirectory函数
    */
@@ -41,7 +37,7 @@ describe('文件工具模块测试', () => {
       expect(typeof createDirectory('/test/dir')).toBe('boolean');
     });
   });
-  
+
   /**
    * 测试getFileSize函数
    */
@@ -52,7 +48,7 @@ describe('文件工具模块测试', () => {
       expect(result === null || typeof result === 'number').toBe(true);
     });
   });
-  
+
   /**
    * 测试generateSafeFilename函数
    */
@@ -63,17 +59,17 @@ describe('文件工具模块测试', () => {
       expect(generateSafeFilename('file"name|.txt')).toBe('file_name_.txt');
       expect(generateSafeFilename('file<name>.txt')).toBe('file_name_.txt');
     });
-    
+
     test('应该保留合法字符', () => {
       expect(generateSafeFilename('file-name_123.txt')).toBe('file-name_123.txt');
       expect(generateSafeFilename('正常文件名.txt')).toBe('正常文件名.txt');
     });
-    
+
     test('应该处理空字符串', () => {
       expect(generateSafeFilename('')).toBe('');
     });
   });
-  
+
   /**
    * 测试generateNumberedFilename函数
    */
@@ -83,29 +79,7 @@ describe('文件工具模块测试', () => {
       expect(generateNumberedFilename('file', '.txt', 10)).toBe('file_10.txt');
     });
   });
-  
-  /**
-   * 测试getDirectoryPath函数
-   */
-  describe('getDirectoryPath', () => {
-    test('应该从完整路径中提取目录路径', () => {
-      expect(getDirectoryPath('/path/to/file.txt')).toBe('/path/to');
-      expect(getDirectoryPath('C:\\path\\to\\file.txt')).toBe('C:\\path\\to');
-      expect(getDirectoryPath('file.txt')).toBe('.');
-    });
-  });
-  
-  /**
-   * 测试getFilename函数
-   */
-  describe('getFilename', () => {
-    test('应该从完整路径中提取文件名', () => {
-      expect(getFilename('/path/to/file.txt')).toBe('file.txt');
-      expect(getFilename('C:\\path\\to\\file.txt')).toBe('file.txt');
-      expect(getFilename('file.txt')).toBe('file.txt');
-    });
-  });
-  
+
   /**
    * 测试joinPath函数
    */
@@ -115,28 +89,7 @@ describe('文件工具模块测试', () => {
       expect(joinPath('/path/', '/to/', '/file.txt')).toBe('/path/to/file.txt');
     });
   });
-  
-  /**
-   * 测试normalizePath函数
-   */
-  describe('normalizePath', () => {
-    test('应该规范化路径', () => {
-      expect(normalizePath('path\\to\\file.txt')).toBe('path/to/file.txt');
-      expect(normalizePath('path//to//file.txt')).toBe('path/to/file.txt');
-      expect(normalizePath('/path/to/file.txt')).toBe('/path/to/file.txt');
-    });
-  });
-  
-  /**
-   * 测试downloadFile函数
-   */
-  describe('downloadFile', () => {
-    test('应该返回Promise', () => {
-      const result = downloadFile('https://example.com/file.txt', 'file.txt');
-      expect(result).toBeInstanceOf(Promise);
-    });
-  });
-  
+
   /**
    * 测试readFile函数
    */
@@ -146,7 +99,7 @@ describe('文件工具模块测试', () => {
       expect(result).toBeInstanceOf(Promise);
     });
   });
-  
+
   /**
    * 测试writeFile函数
    */

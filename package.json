@@ -1,21 +1,21 @@
 {
   "name": "ximalaya-downloader",
-  "version": "1.0.0",
-  "description": "喜马拉雅音频下载器",
+  "version": "2.0.0",
+  "description": "喜马拉雅音频下载器 - Node.js CLI 工具",
   "main": "index.js",
   "type": "module",
   "scripts": {
     "start": "node index.js",
     "test": "node tests/runner.js",
     "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
-    "proxy": "node proxy/server.js"
+    "lint:fix": "eslint . --fix"
   },
   "keywords": [
     "ximalaya",
     "downloader",
     "audio",
-    "喜马拉雅"
+    "喜马拉雅",
+    "cli"
   ],
   "author": "",
   "license": "MIT",
@@ -23,6 +23,6 @@
     "eslint": "^8.0.0"
   },
   "engines": {
-    "node": ">=14.0.0"
+    "node": ">=16.0.0"
   }
 }
