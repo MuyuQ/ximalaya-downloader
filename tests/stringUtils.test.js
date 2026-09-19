@@ -1,12 +1,15 @@
 /**
- * @fileoverview 字符串工具模块的单元测试
+ * @fileoverview stringUtils 单元测试
+ * @description 覆盖文件名清理、格式化、命名转换等纯函数的正常与边界路径
  */
+
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
 
 import {
   replaceInvalidChars,
   formatTime,
   formatFileSize,
-  generateRandomString,
   truncateString,
   capitalize,
   toCamelCase,
@@ -16,179 +19,158 @@ import {
   extractFilenameFromUrl,
   getFileExtension,
   removeFileExtension
-} from '../utils/stringUtils.js';
+} from '../src/utils/stringUtils.js';
 
-/**
- * 字符串工具模块测试套件
- */
-describe('字符串工具模块测试', () => {
-
-  /**
-   * 测试replaceInvalidChars函数
-   */
-  describe('replaceInvalidChars', () => {
-    test('应该替换文件名中的非法字符', () => {
-      expect(replaceInvalidChars('file/name?.txt')).toBe('file_name_.txt');
-      expect(replaceInvalidChars('file:name*.txt')).toBe('file_name_.txt');
-      expect(replaceInvalidChars('file"name|.txt')).toBe('file_name_.txt');
-      expect(replaceInvalidChars('file<name>.txt')).toBe('file_name_.txt');
-    });
-
-    test('应该保留合法字符', () => {
-      expect(replaceInvalidChars('file-name_123.txt')).toBe('file-name_123.txt');
-      expect(replaceInvalidChars('正常文件名.txt')).toBe('正常文件名.txt');
-    });
-
-    test('应该处理空字符串', () => {
-      expect(replaceInvalidChars('')).toBe('');
-    });
+describe('replaceInvalidChars', () => {
+  it('替换非法字符为下划线', () => {
+    assert.equal(replaceInvalidChars('a<b>c'), 'a_b_c');
+    assert.equal(replaceInvalidChars('con/tain?ers'), 'con_tain_ers');
   });
 
-  /**
-   * 测试formatTime函数
-   */
-  describe('formatTime', () => {
-    test('应该正确格式化秒数为时间字符串', () => {
-      expect(formatTime(0)).toBe('00:00');
-      expect(formatTime(5)).toBe('00:05');
-      expect(formatTime(65)).toBe('01:05');
-      expect(formatTime(3665)).toBe('01:01:05');
-    });
-
-    test('应该处理非数字输入', () => {
-      expect(formatTime('abc')).toBe('00:00');
-      expect(formatTime(null)).toBe('00:00');
-      expect(formatTime(undefined)).toBe('00:00');
-    });
+  it('空输入返回 untitled', () => {
+    assert.equal(replaceInvalidChars(''), 'untitled');
   });
 
-  /**
-   * 测试formatFileSize函数
-   */
-  describe('formatFileSize', () => {
-    test('应该正确格式化文件大小', () => {
-      expect(formatFileSize(0)).toBe('0 B');
-      expect(formatFileSize(1024)).toBe('1.00 KB');
-      expect(formatFileSize(1048576)).toBe('1.00 MB');
-      expect(formatFileSize(1073741824)).toBe('1.00 GB');
-    });
-
-    test('应该处理非数字输入', () => {
-      expect(formatFileSize('abc')).toBe('0 B');
-      expect(formatFileSize(null)).toBe('0 B');
-      expect(formatFileSize(undefined)).toBe('0 B');
-    });
+  it('非字符串输入返回空字符串', () => {
+    assert.equal(replaceInvalidChars(null), '');
+    assert.equal(replaceInvalidChars(123), '');
   });
 
-  /**
-   * 测试generateRandomString函数
-   */
-  describe('generateRandomString', () => {
-    test('应该生成指定长度的随机字符串', () => {
-      const str1 = generateRandomString(10);
-      const str2 = generateRandomString(10);
-
-      expect(str1).toHaveLength(10);
-      expect(str2).toHaveLength(10);
-      expect(str1).not.toBe(str2);
-    });
-
-    test('应该使用默认长度', () => {
-      const str = generateRandomString();
-      expect(str).toHaveLength(8);
-    });
+  it('移除首尾的空格和点', () => {
+    assert.equal(replaceInvalidChars('  .name. '), 'name');
   });
 
-  /**
-   * 测试truncateString函数
-   */
-  describe('truncateString', () => {
-    test('应该截断超过指定长度的字符串', () => {
-      expect(truncateString('Hello World', 5)).toBe('Hello...');
-      expect(truncateString('Hello World', 8)).toBe('Hello W...');
-    });
+  it('支持自定义替换字符', () => {
+    assert.equal(replaceInvalidChars('a/b', '-'), 'a-b');
+  });
+});
 
-    test('应该保留不超过指定长度的字符串', () => {
-      expect(truncateString('Hello', 10)).toBe('Hello');
-      expect(truncateString('', 10)).toBe('');
-    });
+describe('formatTime', () => {
+  it('格式化分秒', () => {
+    assert.equal(formatTime(125), '02:05');
+    assert.equal(formatTime(0), '00:00');
+    assert.equal(formatTime(60), '01:00');
   });
 
-  /**
-   * 测试capitalize函数
-   */
-  describe('capitalize', () => {
-    test('应该将字符串首字母大写', () => {
-      expect(capitalize('hello')).toBe('Hello');
-      expect(capitalize('HELLO')).toBe('Hello');
-      expect(capitalize('hELLO')).toBe('Hello');
-    });
-
-    test('应该处理空字符串', () => {
-      expect(capitalize('')).toBe('');
-    });
+  it('超过一小时自动显示小时', () => {
+    assert.equal(formatTime(3665), '01:01:05');
   });
 
-  /**
-   * 测试命名转换函数
-   */
-  describe('命名转换函数', () => {
-    test('toCamelCase应该转换为驼峰命名', () => {
-      expect(toCamelCase('hello-world')).toBe('helloWorld');
-      expect(toCamelCase('hello_world')).toBe('helloWorld');
-      expect(toCamelCase('hello.world')).toBe('helloWorld');
-    });
+  it('无效输入返回 00:00', () => {
+    assert.equal(formatTime(-1), '00:00');
+    assert.equal(formatTime(NaN), '00:00');
+    assert.equal(formatTime('abc'), '00:00');
+  });
+});
 
-    test('toKebabCase应该转换为短横线命名', () => {
-      expect(toKebabCase('helloWorld')).toBe('hello-world');
-      expect(toKebabCase('hello_world')).toBe('hello-world');
-      expect(toKebabCase('hello.world')).toBe('hello-world');
-    });
-
-    test('toSnakeCase应该转换为下划线命名', () => {
-      expect(toSnakeCase('helloWorld')).toBe('hello_world');
-      expect(toSnakeCase('hello-world')).toBe('hello_world');
-      expect(toSnakeCase('hello.world')).toBe('hello_world');
-    });
+describe('formatFileSize', () => {
+  it('格式化字节与 KB/MB', () => {
+    assert.equal(formatFileSize(0), '0 B');
+    assert.equal(formatFileSize(512), '512.00 B');
+    assert.equal(formatFileSize(1024), '1.00 KB');
+    assert.equal(formatFileSize(1048576), '1.00 MB');
   });
 
-  /**
-   * 测试isEmptyOrWhitespace函数
-   */
-  describe('isEmptyOrWhitespace', () => {
-    test('应该识别空字符串和只包含空白字符的字符串', () => {
-      expect(isEmptyOrWhitespace('')).toBe(true);
-      expect(isEmptyOrWhitespace('   ')).toBe(true);
-      expect(isEmptyOrWhitespace('\n\t')).toBe(true);
-    });
-
-    test('应该识别非空字符串', () => {
-      expect(isEmptyOrWhitespace('hello')).toBe(false);
-      expect(isEmptyOrWhitespace(' hello ')).toBe(false);
-    });
+  it('支持自定义小数位', () => {
+    assert.equal(formatFileSize(1024, 0), '1 KB');
   });
 
-  /**
-   * 测试文件名相关函数
-   */
-  describe('文件名相关函数', () => {
-    test('extractFilenameFromUrl应该从URL中提取文件名', () => {
-      expect(extractFilenameFromUrl('https://example.com/path/to/file.txt'))
-        .toBe('file.txt');
-      expect(extractFilenameFromUrl('https://example.com/file.mp3?query=123'))
-        .toBe('file.mp3');
-    });
+  it('无效输入返回 0 B', () => {
+    assert.equal(formatFileSize(-100), '0 B');
+    assert.equal(formatFileSize('x'), '0 B');
+  });
+});
 
-    test('getFileExtension应该获取文件扩展名', () => {
-      expect(getFileExtension('file.txt')).toBe('.txt');
-      expect(getFileExtension('file.tar.gz')).toBe('.gz');
-      expect(getFileExtension('file')).toBe('');
-    });
+describe('truncateString', () => {
+  it('超长字符串截断并加省略号', () => {
+    assert.equal(truncateString('Hello World', 5), 'He...');
+  });
 
-    test('removeFileExtension应该移除文件扩展名', () => {
-      expect(removeFileExtension('file.txt')).toBe('file');
-      expect(removeFileExtension('file.tar.gz')).toBe('file.tar');
-      expect(removeFileExtension('file')).toBe('file');
-    });
+  it('不超长的字符串原样返回', () => {
+    assert.equal(truncateString('Short', 10), 'Short');
+  });
+
+  it('非字符串输入返回空字符串', () => {
+    assert.equal(truncateString(null), '');
+  });
+});
+
+describe('capitalize', () => {
+  it('首字母大写，其余保持不变', () => {
+    assert.equal(capitalize('hello world'), 'Hello world');
+    assert.equal(capitalize('HELLO'), 'HELLO');
+    assert.equal(capitalize('hELLO'), 'HELLO');
+  });
+
+  it('空与非字符串输入返回空字符串', () => {
+    assert.equal(capitalize(''), '');
+    assert.equal(capitalize(null), '');
+  });
+});
+
+describe('toCamelCase', () => {
+  it('转换下划线、短横线、空格与点号', () => {
+    assert.equal(toCamelCase('hello_world'), 'helloWorld');
+    assert.equal(toCamelCase('hello-world'), 'helloWorld');
+    assert.equal(toCamelCase('Hello World'), 'helloWorld');
+    assert.equal(toCamelCase('hello.world'), 'helloWorld');
+  });
+
+  it('非字符串输入返回空字符串', () => {
+    assert.equal(toCamelCase(null), '');
+  });
+});
+
+describe('toKebabCase', () => {
+  it('转换驼峰、下划线、空格与点号', () => {
+    assert.equal(toKebabCase('helloWorld'), 'hello-world');
+    assert.equal(toKebabCase('hello_world'), 'hello-world');
+    assert.equal(toKebabCase('Hello World'), 'hello-world');
+    assert.equal(toKebabCase('hello.world'), 'hello-world');
+  });
+});
+
+describe('toSnakeCase', () => {
+  it('转换驼峰、短横线、空格与点号', () => {
+    assert.equal(toSnakeCase('helloWorld'), 'hello_world');
+    assert.equal(toSnakeCase('hello-world'), 'hello_world');
+    assert.equal(toSnakeCase('Hello World'), 'hello_world');
+    assert.equal(toSnakeCase('hello.world'), 'hello_world');
+  });
+});
+
+describe('isEmptyOrWhitespace', () => {
+  it('识别空与空白字符串', () => {
+    assert.equal(isEmptyOrWhitespace(''), true);
+    assert.equal(isEmptyOrWhitespace('   '), true);
+    assert.equal(isEmptyOrWhitespace('hello'), false);
+    assert.equal(isEmptyOrWhitespace(null), true);
+  });
+});
+
+describe('extractFilenameFromUrl', () => {
+  it('从 URL 提取文件名并移除查询参数', () => {
+    assert.equal(
+      extractFilenameFromUrl('https://example.com/path/to/file.mp3?param=value'),
+      'file.mp3'
+    );
+  });
+
+  it('非法 URL 退化处理', () => {
+    assert.equal(extractFilenameFromUrl('not-a-url/file.mp3'), 'file.mp3');
+  });
+});
+
+describe('getFileExtension / removeFileExtension', () => {
+  it('提取扩展名（含点）', () => {
+    assert.equal(getFileExtension('file.mp3'), '.mp3');
+    assert.equal(getFileExtension('archive.tar.gz'), '.gz');
+    assert.equal(getFileExtension('noextension'), '');
+  });
+
+  it('移除扩展名', () => {
+    assert.equal(removeFileExtension('file.mp3'), 'file');
+    assert.equal(removeFileExtension('archive.tar.gz'), 'archive.tar');
+    assert.equal(removeFileExtension('noextension'), 'noextension');
   });
 });

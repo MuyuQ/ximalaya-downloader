@@ -7,6 +7,12 @@ config.json
 # Dependencies
 node_modules/
 
+# Python virtual environments (遗留的开发环境目录)
+.venv/
+venv/
+__pycache__/
+*.pyc
+
 # Downloads directory
 downloads/
 

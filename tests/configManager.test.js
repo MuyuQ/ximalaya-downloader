@@ -1,189 +1,144 @@
 /**
- * @fileoverview 配置管理模块的单元测试
+ * @fileoverview configManager 单元测试
+ * @description 使用临时目录隔离配置文件，覆盖读取、写入、更新、验证、
+ *   Cookie 加密存储与解密失败处理
  */
 
-import {
+import { describe, it, after } from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync } from 'fs';
+import { tmpdir } from 'os';
+import path from 'path';
+
+const tmpDir = mkdtempSync(path.join(tmpdir(), 'xmly-config-'));
+const configPath = path.join(tmpDir, 'config.json');
+process.env.XIMALAYA_CONFIG_PATH = configPath;
+process.env.XIMALAYA_KEY_PATH = path.join(tmpDir, '.encryption.key');
+
+const {
   readConfig,
-  writeConfig,
   updateConfig,
   validateConfig,
   checkConfig,
   resetConfig,
   getConfigFilePath,
-  getDefaultConfig,
-  exportConfig,
-  importConfig
-} from '../core/configManager.js';
+  getDefaultConfig
+} = await import('../src/core/configManager.js');
 
-/**
- * 配置管理模块测试套件
- */
-describe('配置管理模块测试', () => {
+after(() => {
+  rmSync(tmpDir, { recursive: true, force: true });
+  delete process.env.XIMALAYA_CONFIG_PATH;
+  delete process.env.XIMALAYA_KEY_PATH;
+});
 
-  /**
-   * 测试readConfig函数
-   */
-  describe('readConfig', () => {
-    test('应该返回配置对象', async () => {
-      const config = await readConfig();
-
-      expect(typeof config).toBe('object');
-      expect(config).toHaveProperty('cookie');
-      expect(config).toHaveProperty('path');
-      expect(config).toHaveProperty('bid');
-      expect(config).toHaveProperty('quality');
-      expect(config).toHaveProperty('maxRetries');
-      expect(config).toHaveProperty('concurrentDownloads');
-      expect(config).toHaveProperty('userAgent');
-    });
+describe('readConfig', () => {
+  it('配置文件不存在时创建默认配置', async () => {
+    const config = await readConfig();
+    assert.equal(existsSync(configPath), true);
+    assert.equal(config.path, './downloads');
+    assert.equal(config.quality, 'high');
+    assert.equal(config.concurrentDownloads, 3);
   });
 
-  /**
-   * 测试writeConfig函数
-   */
-  describe('writeConfig', () => {
-    test('应该写入配置', async () => {
-      const testConfig = {
-        cookie: 'test_cookie',
-        path: '/test/path',
-        bid: 'test_bid',
-        quality: 2,
-        maxRetries: 3,
-        concurrentDownloads: 3,
-        userAgent: 'test_agent'
-      };
+  it('配置缺失项自动以默认值合并', async () => {
+    writeFileSync(configPath, JSON.stringify({ path: '/custom' }));
+    const config = await readConfig();
+    assert.equal(config.path, '/custom');
+    assert.equal(config.quality, 'high');
+  });
+});
 
-      const result = await writeConfig(testConfig);
-      expect(result).toBe(true);
-    });
+describe('writeConfig / updateConfig', () => {
+  it('更新配置并持久化', async () => {
+    await updateConfig({ path: './my-downloads', concurrentDownloads: 5 });
+    const config = await readConfig();
+    assert.equal(config.path, './my-downloads');
+    assert.equal(config.concurrentDownloads, 5);
   });
 
-  /**
-   * 测试updateConfig函数
-   */
-  describe('updateConfig', () => {
-    test('应该更新配置', async () => {
-      const updates = {
-        cookie: 'updated_cookie',
-        quality: 3
-      };
+  it('Cookie 加密存储（文件中无明文）', async () => {
+    const secret = '1&_token=super-secret-cookie-value';
+    await updateConfig({ cookie: secret, bid: 'test-bid-value' });
 
-      const result = await updateConfig(updates);
-      expect(result).toBe(true);
+    const raw = JSON.parse(readFileSync(configPath, 'utf8'));
+    assert.notEqual(raw.cookie, secret);
+    assert.ok(raw.cookie.length > 0);
+
+    const config = await readConfig();
+    assert.equal(config.cookie, secret);
+  });
+});
+
+describe('validateConfig', () => {
+  it('非法类型自动修正为默认值', () => {
+    const fixed = validateConfig({
+      path: 123,
+      quality: 'ultra',
+      maxRetries: -1,
+      concurrentDownloads: 0,
+      retryDelay: 'x',
+      cookie: null,
+      bid: 42
     });
+
+    assert.equal(fixed.path, './downloads');
+    assert.equal(fixed.quality, 'high');
+    assert.equal(fixed.maxRetries, 3);
+    assert.equal(fixed.concurrentDownloads, 3);
+    assert.equal(fixed.retryDelay, 1000);
+    assert.equal(fixed.cookie, '');
+    assert.equal(fixed.bid, '');
   });
 
-  /**
-   * 测试validateConfig函数
-   */
-  describe('validateConfig', () => {
-    test('应该验证有效配置', () => {
-      const validConfig = {
-        cookie: 'test_cookie',
-        path: '/test/path',
-        bid: 'test_bid',
-        quality: 2,
-        maxRetries: 3,
-        concurrentDownloads: 3,
-        userAgent: 'test_agent'
-      };
+  it('非对象输入抛出错误', () => {
+    assert.throws(() => validateConfig(null), /配置必须是对象/);
+    assert.throws(() => validateConfig('string'), /配置必须是对象/);
+  });
+});
 
-      const result = validateConfig(validConfig);
-      expect(result.isValid).toBe(true);
-    });
-
-    test('应该拒绝无效配置', () => {
-      const invalidConfig = {
-        cookie: '',
-        path: '',
-        bid: '',
-        quality: 5, // 无效的质量值
-        maxRetries: -1, // 无效的重试次数
-        concurrentDownloads: 0, // 无效的并发数
-        userAgent: ''
-      };
-
-      const result = validateConfig(invalidConfig);
-      expect(result.isValid).toBe(false);
-      expect(result.errors.length).toBeGreaterThan(0);
-    });
+describe('checkConfig', () => {
+  it('未登录时提示需要登录（离线校验）', async () => {
+    await resetConfig();
+    const config = await readConfig();
+    const result = await checkConfig(config, { verifyOnline: false });
+    assert.equal(result.valid, false);
+    assert.equal(result.needLogin, true);
   });
 
-  /**
-   * 测试checkConfig函数
-   */
-  describe('checkConfig', () => {
-    test('应该检查配置', async () => {
-      const config = await readConfig();
-      const result = await checkConfig(config);
+  it('解密失败时给出明确的重新登录提示', async () => {
+    // 写入一个"加密格式"但无法解密的 Cookie（密钥不匹配）
+    writeFileSync(configPath, JSON.stringify({
+      cookie: Buffer.from('x'.repeat(120)).toString('base64'),
+      bid: 'some-bid'
+    }));
 
-      expect(typeof result).toBe('object');
-      expect(result).toHaveProperty('valid');
-      expect(result).toHaveProperty('errors');
-    });
+    const config = await readConfig();
+    assert.equal(config.cookieDecryptFailed, true);
+
+    const result = await checkConfig(config, { verifyOnline: false });
+    assert.equal(result.valid, false);
+    assert.equal(result.needLogin, true);
+    assert.match(result.error, /重新登录/);
+  });
+});
+
+describe('辅助接口', () => {
+  it('getConfigFilePath 返回当前配置路径', () => {
+    assert.equal(getConfigFilePath(), configPath);
   });
 
-  /**
-   * 测试resetConfig函数
-   */
-  describe('resetConfig', () => {
-    test('应该重置配置', async () => {
-      const result = await resetConfig();
-      expect(result).toBe(true);
-    });
+  it('getDefaultConfig 返回默认配置副本', () => {
+    const defaults = getDefaultConfig();
+    assert.equal(defaults.path, './downloads');
+    // 修改副本不影响内部默认值
+    defaults.path = 'changed';
+    assert.equal(getDefaultConfig().path, './downloads');
   });
 
-  /**
-   * 测试getConfigFilePath函数
-   */
-  describe('getConfigFilePath', () => {
-    test('应该返回配置文件路径', () => {
-      const path = getConfigFilePath();
-
-      expect(typeof path).toBe('string');
-      expect(path.length).toBeGreaterThan(0);
-    });
-  });
-
-  /**
-   * 测试getDefaultConfig函数
-   */
-  describe('getDefaultConfig', () => {
-    test('应该返回默认配置', () => {
-      const config = getDefaultConfig();
-
-      expect(typeof config).toBe('object');
-      expect(config).toHaveProperty('cookie');
-      expect(config).toHaveProperty('path');
-      expect(config).toHaveProperty('bid');
-      expect(config).toHaveProperty('quality');
-      expect(config).toHaveProperty('maxRetries');
-      expect(config).toHaveProperty('concurrentDownloads');
-      expect(config).toHaveProperty('userAgent');
-    });
-  });
-
-  /**
-   * 测试exportConfig函数
-   */
-  describe('exportConfig', () => {
-    test('应该导出配置', async () => {
-      const result = await exportConfig('/test/export.json');
-
-      expect(typeof result).toBe('object');
-      expect(result).toHaveProperty('success');
-    });
-  });
-
-  /**
-   * 测试importConfig函数
-   */
-  describe('importConfig', () => {
-    test('应该导入配置', async () => {
-      const result = await importConfig('/test/import.json');
-
-      expect(typeof result).toBe('object');
-      expect(result).toHaveProperty('success');
-    });
+  it('resetConfig 恢复默认配置', async () => {
+    await updateConfig({ path: '/tmp/custom' });
+    await resetConfig();
+    const config = await readConfig();
+    assert.equal(config.path, './downloads');
   });
 });
