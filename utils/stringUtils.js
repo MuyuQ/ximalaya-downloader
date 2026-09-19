@@ -1,37 +1,75 @@
 /**
- * 字符串处理工具模块
- * 提供字符串处理相关的工具函数，包括文件名清理、格式化等
+ * @fileoverview 字符串处理工具模块
+ * @description 提供字符串处理相关的工具函数，包括文件名清理、格式化、命名转换等
+ * @module utils/stringUtils
+ *
+ * @description
+ * 本模块提供常用的字符串处理功能：
+ * - 文件名非法字符替换
+ * - 时间格式化
+ * - 文件大小格式化
+ * - 命名风格转换（驼峰、短横线、下划线）
+ * - URL解析
+ *
+ * @example
+ * import {
+ *   replaceInvalidChars,
+ *   formatTime,
+ *   formatFileSize,
+ *   truncateString
+ * } from './utils/stringUtils.js';
+ *
+ * // 替换非法字符
+ * const safeName = replaceInvalidChars('音频: "测试".mp3');
+ * // 结果: 音频__测试_.mp3
+ *
+ * // 格式化时间
+ * const time = formatTime(125); // "02:05"
+ *
+ * // 格式化文件大小
+ * const size = formatFileSize(1048576); // "1 MB"
  */
 
 /**
  * 替换文件名中的非法字符
+ * @description 移除或替换Windows和Linux/macOS文件系统不允许的字符
  * @param {string} filename - 原始文件名
- * @param {string} [replacement='_'] - 替换字符，默认为下划线
- * @returns {string} 清理后的文件名
- * 
+ * @param {string} [replacement='_'] - 用于替换非法字符的字符串，默认为下划线
+ * @returns {string} 清理后的安全文件名
+ *
+ * @description
+ * 处理规则：
+ * - 替换 <>:"/\\|?* 等非法字符
+ * - 替换控制字符（\x00-\x1f）
+ * - 移除开头和结尾的空格和点
+ * - 如果结果为空，返回 'untitled'
+ *
  * @example
  * const cleanName = replaceInvalidChars('音频: "测试".mp3');
  * console.log(cleanName); // 输出: 音频__测试_.mp3
+ *
+ * const cleanName2 = replaceInvalidChars('file/name?.txt', '-');
+ * console.log(cleanName2); // 输出: file-name-.txt
  */
 export function replaceInvalidChars(filename, replacement = '_') {
   if (typeof filename !== 'string') {
     return '';
   }
-  
+
   // Windows和Linux/macOS都不允许的字符
   const invalidChars = /[<>:"/\\|?*\x00-\x1f]/g;
-  
+
   // 替换非法字符
   let cleaned = filename.replace(invalidChars, replacement);
-  
+
   // 移除文件名开头和结尾的空格和点
   cleaned = cleaned.replace(/^[ .]+|[ .]+$/g, '');
-  
+
   // 确保文件名不为空
   if (!cleaned) {
     cleaned = 'untitled';
   }
-  
+
   return cleaned;
 }
 
@@ -40,7 +78,7 @@ export function replaceInvalidChars(filename, replacement = '_') {
  * @param {number} seconds - 秒数
  * @param {boolean} [showHours=false] - 是否显示小时
  * @returns {string} 格式化后的时间字符串
- * 
+ *
  * @example
  * const time1 = formatTime(125); // "2:05"
  * const time2 = formatTime(3665, true); // "1:01:05"
@@ -65,7 +103,7 @@ export function formatTime(seconds, showHours = false) {
  * @param {number} bytes - 字节数
  * @param {number} [decimals=2] - 小数位数
  * @returns {string} 格式化后的文件大小字符串
- * 
+ *
  * @example
  * const size1 = formatFileSize(1024); // "1 KB"
  * const size2 = formatFileSize(1048576); // "1 MB"
@@ -89,7 +127,7 @@ export function formatFileSize(bytes, decimals = 2) {
  * @param {number} [length=8] - 字符串长度
  * @param {string} [charset='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'] - 字符集
  * @returns {string} 随机字符串
- * 
+ *
  * @example
  * const randomStr1 = generateRandomString(); // 8位随机字符串
  * const randomStr2 = generateRandomString(16); // 16位随机字符串
@@ -99,7 +137,7 @@ export function generateRandomString(length = 8, charset = 'ABCDEFGHIJKLMNOPQRST
   if (typeof length !== 'number' || length <= 0) {
     length = 8;
   }
-  
+
   let result = '';
   for (let i = 0; i < length; i++) {
     result += charset.charAt(Math.floor(Math.random() * charset.length));
@@ -113,7 +151,7 @@ export function generateRandomString(length = 8, charset = 'ABCDEFGHIJKLMNOPQRST
  * @param {number} [maxLength=50] - 最大长度
  * @param {string} [suffix='...'] - 后缀
  * @returns {string} 截断后的字符串
- * 
+ *
  * @example
  * const truncated1 = truncateString('这是一个很长的字符串', 10); // "这是一个很..."
  * const truncated2 = truncateString('Short', 10); // "Short"
@@ -122,11 +160,11 @@ export function truncateString(str, maxLength = 50, suffix = '...') {
   if (typeof str !== 'string') {
     return '';
   }
-  
+
   if (str.length <= maxLength) {
     return str;
   }
-  
+
   return str.substring(0, maxLength - suffix.length) + suffix;
 }
 
@@ -134,7 +172,7 @@ export function truncateString(str, maxLength = 50, suffix = '...') {
  * 首字母大写
  * @param {string} str - 原始字符串
  * @returns {string} 首字母大写的字符串
- * 
+ *
  * @example
  * const capitalized = capitalize('hello world'); // "Hello world"
  */
@@ -142,7 +180,7 @@ export function capitalize(str) {
   if (typeof str !== 'string' || str.length === 0) {
     return '';
   }
-  
+
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
@@ -150,7 +188,7 @@ export function capitalize(str) {
  * 驼峰命名转换
  * @param {string} str - 原始字符串
  * @returns {string} 驼峰命名的字符串
- * 
+ *
  * @example
  * const camelCase1 = toCamelCase('hello_world'); // "helloWorld"
  * const camelCase2 = toCamelCase('hello-world'); // "helloWorld"
@@ -160,7 +198,7 @@ export function toCamelCase(str) {
   if (typeof str !== 'string') {
     return '';
   }
-  
+
   return str
     .replace(/(?:^\w|[A-Z]|\b\w)/g, (word, index) => {
       return index === 0 ? word.toLowerCase() : word.toUpperCase();
@@ -173,7 +211,7 @@ export function toCamelCase(str) {
  * 短横线命名转换
  * @param {string} str - 原始字符串
  * @returns {string} 短横线命名的字符串
- * 
+ *
  * @example
  * const kebabCase1 = toKebabCase('helloWorld'); // "hello-world"
  * const kebabCase2 = toKebabCase('Hello World'); // "hello-world"
@@ -183,7 +221,7 @@ export function toKebabCase(str) {
   if (typeof str !== 'string') {
     return '';
   }
-  
+
   return str
     .replace(/([a-z])([A-Z])/g, '$1-$2')
     .replace(/[\s_]+/g, '-')
@@ -194,7 +232,7 @@ export function toKebabCase(str) {
  * 下划线命名转换
  * @param {string} str - 原始字符串
  * @returns {string} 下划线命名的字符串
- * 
+ *
  * @example
  * const snakeCase1 = toSnakeCase('helloWorld'); // "hello_world"
  * const snakeCase2 = toSnakeCase('Hello World'); // "hello_world"
@@ -204,7 +242,7 @@ export function toSnakeCase(str) {
   if (typeof str !== 'string') {
     return '';
   }
-  
+
   return str
     .replace(/([a-z])([A-Z])/g, '$1_$2')
     .replace(/[\s-]+/g, '_')
@@ -215,7 +253,7 @@ export function toSnakeCase(str) {
  * 检查字符串是否为空或只包含空白字符
  * @param {string} str - 要检查的字符串
  * @returns {boolean} 是否为空或只包含空白字符
- * 
+ *
  * @example
  * const isEmpty1 = isEmptyOrWhitespace(''); // true
  * const isEmpty2 = isEmptyOrWhitespace('   '); // true
@@ -229,7 +267,7 @@ export function isEmptyOrWhitespace(str) {
  * 从URL中提取文件名
  * @param {string} url - URL字符串
  * @returns {string} 文件名
- * 
+ *
  * @example
  * const filename = extractFilenameFromUrl('https://example.com/path/to/file.mp3?param=value');
  * console.log(filename); // "file.mp3"
@@ -238,12 +276,12 @@ export function extractFilenameFromUrl(url) {
   if (typeof url !== 'string') {
     return '';
   }
-  
+
   try {
     const urlObj = new URL(url);
     const pathname = urlObj.pathname;
     const filename = pathname.substring(pathname.lastIndexOf('/') + 1);
-    
+
     // 移除查询参数
     return filename.split('?')[0];
   } catch (error) {
@@ -256,12 +294,13 @@ export function extractFilenameFromUrl(url) {
 
 /**
  * 获取文件扩展名
+ * @description 从文件名中提取扩展名部分（包含点）
  * @param {string} filename - 文件名
- * @returns {string} 文件扩展名（不包含点）
- * 
+ * @returns {string} 文件扩展名（包含点）
+ *
  * @example
- * const ext1 = getFileExtension('file.mp3'); // "mp3"
- * const ext2 = getFileExtension('archive.tar.gz'); // "gz"
+ * const ext1 = getFileExtension('file.mp3'); // ".mp3"
+ * const ext2 = getFileExtension('archive.tar.gz'); // ".gz"
  * const ext3 = getFileExtension('noextension'); // ""
  */
 export function getFileExtension(filename) {
@@ -272,14 +311,15 @@ export function getFileExtension(filename) {
   if (lastDotIndex === -1 || lastDotIndex === filename.length - 1) {
     return '';
   }
-  return filename.substring(lastDotIndex);
+  return filename.substring(lastDotIndex);  // 返回包含点的扩展名
 }
 
 /**
  * 移除文件扩展名
+ * @description 从文件名中移除扩展名部分
  * @param {string} filename - 文件名
  * @returns {string} 不包含扩展名的文件名
- * 
+ *
  * @example
  * const name1 = removeFileExtension('file.mp3'); // "file"
  * const name2 = removeFileExtension('archive.tar.gz'); // "archive.tar"
@@ -294,22 +334,4 @@ export function removeFileExtension(filename) {
     return filename;
   }
   return filename.substring(0, lastDotIndex);
-}
-
-/**
- * 生成带序号的文件名
- * @param {string} filename - 原始文件名
- * @param {number} index - 序号
- * @param {number} [totalDigits=2] - 总位数，用于补零
- * @returns {string} 带序号的文件名
- * 
- * @example
- * const name1 = generateNumberedFilename('audio.mp3', 1); // "01 audio.mp3"
- * const name2 = generateNumberedFilename('audio.mp3', 10, 3); // "010 audio.mp3"
- */
-export function generateNumberedFilename(name, ext, number) {
-  const safeName = typeof name === 'string' ? name : 'file';
-  const safeExt = typeof ext === 'string' ? ext : '';
-  const safeNum = typeof number === 'number' ? number : 0;
-  return `${safeName}_${safeNum}${safeExt}`;
 }

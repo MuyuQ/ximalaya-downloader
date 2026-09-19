@@ -1,313 +1,155 @@
 /**
- * 登录模块
- * 负责处理用户登录流程，包括浏览器自动化和凭证提取
+ * @fileoverview 登录模块
+ * @description 处理用户登录流程，通过命令行交互获取凭证并验证
+ * @module core/login
+ *
+ * @description
+ * 本模块实现了基于Cookie的登录认证功能，主要流程：
+ * 1. 引导用户从浏览器中获取Cookie
+ * 2. 提取必要的认证信息（xm_sg, 1&_token）
+ * 3. 验证Cookie有效性
+ * 4. 保存凭证到配置文件
+ *
+ * 注意：由于喜马拉雅不提供官方API登录接口，
+ * 用户需要手动从浏览器中复制Cookie进行登录。
+ *
+ * @example
+ * import { login, checkLoginStatus, logout } from './core/login.js';
+ *
+ * // 执行登录
+ * const result = await login();
+ * if (result.success) {
+ *   console.log('登录成功:', result.username);
+ * }
+ *
+ * // 检查登录状态
+ * const status = await checkLoginStatus();
+ * console.log('已登录:', status.isLoggedIn);
+ *
+ * // 注销登录
+ * await logout();
  */
 
 import { updateConfig, readConfig } from './configManager.js';
-import { httpRequest } from '../utils/networkUtils.js';
-
-/**
- * 浏览器类型枚举
- * @readonly
- * @enum {string}
- */
-export const BrowserType = {
-  CHROME: 'chrome',
-  EDGE: 'edge'
-};
-
-/**
- * 登录结果
- * @typedef {Object} LoginResult
- * @property {boolean} success - 是否成功
- * @property {string} [username] - 用户名
- * @property {string} [error] - 错误信息
- */
-
-/**
- * 登录配置
- * @typedef {Object} LoginConfig
- * @property {string} browser - 浏览器类型
- * @property {number} [timeout=300000] - 登录超时时间(毫秒)
- * @property {boolean} [headless=false] - 是否无头模式
- */
+import { httpRequest, createAuthHeaders } from '../utils/networkUtils.js';
+import readline from 'readline';
 
 /**
  * 执行登录流程
- * @param {string} browserType - 浏览器类型
- * @param {LoginConfig} [config={}] - 登录配置
- * @returns {Promise<LoginResult>} 登录结果
- * 
+ * @description 通过命令行交互引导用户完成登录，包括Cookie输入和验证
+ * @returns {Promise<Object>} 登录结果对象
+ *
+ * @returns {Object} 返回对象包含以下属性：
+ * @returns {boolean} returns.success - 是否登录成功
+ * @returns {string} [returns.username] - 用户名（仅成功时）
+ * @returns {string} [returns.error] - 错误信息（仅失败时）
+ *
  * @example
- * // 使用Chrome浏览器登录
- * const result = await login('chrome');
+ * const result = await login();
+ *
  * if (result.success) {
- *   console.log(`登录成功，用户名: ${result.username}`);
+ *   console.log('登录成功！用户名:', result.username);
  * } else {
- *   console.error(`登录失败: ${result.error}`);
+ *   console.error('登录失败:', result.error);
  * }
- * 
- * @example
- * // 使用Edge浏览器登录，自定义配置
- * const result = await login('edge', {
- *   timeout: 600000,
- *   headless: false
- * });
  */
-export async function login(browserType, config = {}) {
-  const {
-    timeout = 300000,
-    headless = false
-  } = config;
-  
+export async function login() {
+  console.log('\n=== 喜马拉雅登录 ===');
+  console.log('请先在浏览器中登录喜马拉雅网站，然后按提示输入凭证。\n');
+
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
+
+  const question = (prompt) => new Promise(resolve => rl.question(prompt, resolve));
+
   try {
-    // 验证浏览器类型
-    if (!Object.values(BrowserType).includes(browserType)) {
-      throw new Error(`不支持的浏览器类型: ${browserType}`);
+    // 获取 Cookie
+    console.log('获取 Cookie 的方法：');
+    console.log('1. 在浏览器中打开 https://www.ximalaya.com');
+    console.log('2. 登录账号');
+    console.log('3. 按 F12 打开开发者工具');
+    console.log('4. 在 Console 中输入: document.cookie');
+    console.log('5. 复制输出的内容\n');
+
+    const cookie = await question('请输入 Cookie: ');
+
+    if (!cookie || cookie.trim().length < 10) {
+      return { success: false, error: 'Cookie 无效' };
     }
-    
-    // 启动浏览器
-    console.log(`正在启动${browserType}浏览器...`);
-    const browser = await launchBrowser(browserType, { headless });
-    
-    try {
-      // 打开喜马拉雅登录页面
-      const page = await browser.newPage();
-      await page.goto('https://www.ximalaya.com/');
-      
-      // 等待用户登录
-      console.log('请在浏览器中完成登录...');
-      const loginResult = await waitForLogin(page, timeout);
-      
-      if (!loginResult.success) {
-        return { success: false, error: loginResult.error };
-      }
-      
-      // 提取凭证
-      console.log('正在提取登录凭证...');
-      const credentials = await extractCredentials(page);
-      
-      if (!credentials) {
-        return { success: false, error: '提取登录凭证失败' };
-      }
-      
-      // 验证凭证
-      console.log('正在验证登录凭证...');
-      const validation = await validateCredentials(credentials);
-      
-      if (!validation.success) {
-        return { success: false, error: '登录凭证验证失败' };
-      }
-      
-      // 保存凭证
-      await saveCredentials(credentials);
-      
-      return { 
-        success: true, 
-        username: validation.username 
-      };
-    } finally {
-      // 关闭浏览器
-      await browser.close();
+
+    // 从 cookie 中提取 xm_sg 和 1&_token
+    const bid = extractBid(cookie);
+
+    console.log('\n正在验证登录凭证...');
+
+    // 验证凭证
+    const validation = await validateCredentials(cookie.trim(), bid);
+
+    if (!validation.success) {
+      return { success: false, error: validation.error || '登录凭证验证失败' };
     }
-  } catch (error) {
-    return { 
-      success: false, 
-      error: error.message 
+
+    // 保存凭证
+    await updateConfig({
+      cookie: cookie.trim(),
+      bid: bid
+    });
+
+    console.log(`\n✓ 登录成功！用户名: ${validation.username}`);
+
+    return {
+      success: true,
+      username: validation.username
     };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message
+    };
+  } finally {
+    rl.close();
   }
 }
 
 /**
- * 启动浏览器
- * @param {string} browserType - 浏览器类型
- * @param {Object} options - 浏览器选项
- * @returns {Promise<Object>} 浏览器实例
- * @private
+ * 从 cookie 中提取 bid
+ * @param {string} cookie - Cookie 字符串
+ * @returns {string} bid
  */
-async function launchBrowser(browserType, options = {}) {
-  // 在实际实现中，这里会使用puppeteer或playwright等库
-  // 这里提供一个模拟实现
-  console.log(`启动${browserType}浏览器，选项:`, options);
-  
-  // 模拟浏览器对象
-  return {
-    newPage: async () => {
-      return {
-        goto: async (url) => {
-          console.log(`导航到: ${url}`);
-        },
-        waitForSelector: async (selector, options) => {
-          console.log(`等待选择器: ${selector}`);
-        },
-        evaluate: async (fn) => {
-          // 模拟页面评估
-          return fn();
-        },
-        on: (event, callback) => {
-          // 模拟事件监听
-          if (event === 'response') {
-            // 模拟网络请求监听
-            setTimeout(() => {
-              callback({
-                url: () => 'https://www.ximalaya.com/api/test',
-                headers: () => ({
-                  'cookie': 'test_cookie',
-                  'xm-sign': 'test_sign',
-                  'bid': 'test_bid'
-                })
-              });
-            }, 1000);
-          }
-        },
-        close: async () => {
-          console.log('关闭页面');
-        }
-      };
-    },
-    close: async () => {
-      console.log('关闭浏览器');
-    }
-  };
-}
+function extractBid(cookie) {
+  // 尝试从 xm_sg 中提取
+  const xmSgMatch = cookie.match(/xm_sg=([^;]+)/);
+  if (xmSgMatch) {
+    return xmSgMatch[1];
+  }
 
-/**
- * 等待用户登录
- * @param {Object} page - 页面实例
- * @param {number} timeout - 超时时间(毫秒)
- * @returns {Promise<Object>} 登录结果
- * @private
- */
-async function waitForLogin(page, timeout) {
-  return new Promise((resolve) => {
-    let resolved = false;
-    
-    // 设置超时
-    const timeoutId = setTimeout(() => {
-      if (!resolved) {
-        resolved = true;
-        resolve({ 
-          success: false, 
-          error: '登录超时，请重试' 
-        });
-      }
-    }, timeout);
-    
-    // 检查登录状态
-    const checkLoginStatus = async () => {
-      try {
-        // 在实际实现中，这里会检查页面上的登录状态
-        // 这里提供一个模拟实现
-        let isLoggedIn = false;
-        
-        try {
-          // 尝试在浏览器环境中检查登录状态
-          isLoggedIn = await page.evaluate(() => {
-            // 模拟检查登录状态
-            return document.cookie.includes('_token=');
-          });
-        } catch (evalError) {
-          // 如果在浏览器环境中无法执行，则使用模拟方式
-          console.log('无法在浏览器环境中检查登录状态，使用模拟方式');
-          isLoggedIn = Math.random() > 0.5; // 模拟随机登录状态
-        }
-        
-        if (isLoggedIn && !resolved) {
-          resolved = true;
-          clearTimeout(timeoutId);
-          resolve({ success: true });
-        } else if (!resolved) {
-          // 继续检查
-          setTimeout(checkLoginStatus, 2000);
-        }
-      } catch (error) {
-        if (!resolved) {
-          resolved = true;
-          clearTimeout(timeoutId);
-          resolve({ 
-            success: false, 
-            error: `检查登录状态失败: ${error.message}` 
-          });
-        }
-      }
-    };
-    
-    // 开始检查
-    setTimeout(checkLoginStatus, 3000);
-  });
-}
+  // 尝试从 1&_token 中提取
+  const tokenMatch = cookie.match(/1&_token=([^;]+)/);
+  if (tokenMatch) {
+    return tokenMatch[1].substring(0, 32);
+  }
 
-/**
- * 提取登录凭证
- * @param {Object} page - 页面实例
- * @returns {Promise<Object|null>} 登录凭证
- * @private
- */
-async function extractCredentials(page) {
-  return new Promise((resolve) => {
-    let resolved = false;
-    
-    // 监听网络请求
-    page.on('response', (response) => {
-      if (resolved) return;
-      
-      const url = response.url();
-      
-      // 检查是否是API请求
-      if (url.includes('ximalaya.com') && url.includes('/api/')) {
-        const headers = response.headers();
-        
-        // 提取凭证
-        const cookie = headers.cookie || headers.Cookie;
-        const xmSign = headers['xm-sign'];
-        const bid = headers.bid;
-        
-        if (cookie && xmSign && bid) {
-          resolved = true;
-          resolve({
-            cookie,
-            xmSign,
-            bid
-          });
-        }
-      }
-    });
-    
-    // 导航到触发API请求的页面
-    page.goto('https://www.ximalaya.com/explore/').catch(() => {
-      // 忽略导航错误
-    });
-    
-    // 设置超时
-    setTimeout(() => {
-      if (!resolved) {
-        resolved = true;
-        resolve(null);
-      }
-    }, 10000);
-  });
+  // 使用随机值
+  return Math.random().toString(36).substring(2, 18);
 }
 
 /**
  * 验证登录凭证
- * @param {Object} credentials - 登录凭证
+ * @param {string} cookie - Cookie 字符串
+ * @param {string} bid - BID
  * @returns {Promise<Object>} 验证结果
- * @private
  */
-async function validateCredentials(credentials) {
+async function validateCredentials(cookie, bid) {
   try {
-    // 构建请求头
-    const headers = {
-      'Cookie': credentials.cookie,
-      'xm-sign': credentials.xmSign,
-      'bid': credentials.bid
-    };
-    
-    // 发送请求获取用户信息
+    const headers = createAuthHeaders(cookie, bid);
+
     const data = await httpRequest('https://www.ximalaya.com/revision/user/v1/getUserInfo', {
       method: 'GET',
       headers,
-      timeout: 10000
+      timeout: 10000,
+      retries: 2
     });
 
     if (data && data.ret === 200 && data.data) {
@@ -316,6 +158,7 @@ async function validateCredentials(credentials) {
         username: data.data.nickname || data.data.mobile || '未知用户'
       };
     }
+
     return { success: false, error: '获取用户信息失败' };
   } catch (error) {
     return {
@@ -326,65 +169,27 @@ async function validateCredentials(credentials) {
 }
 
 /**
- * 保存登录凭证
- * @param {Object} credentials - 登录凭证
- * @returns {Promise<void>} 无返回值
- * @private
- */
-async function saveCredentials(credentials) {
-  try {
-    // 读取当前配置
-    const config = await readConfig();
-    
-    // 更新凭证
-    const updatedConfig = {
-      ...config,
-      cookie: credentials.cookie,
-      bid: credentials.bid
-    };
-    
-    // 保存配置
-    await updateConfig(updatedConfig);
-    
-    console.log('登录凭证已保存');
-  } catch (error) {
-    throw new Error(`保存登录凭证失败: ${error.message}`);
-  }
-}
-
-/**
  * 检查登录状态
  * @returns {Promise<Object>} 登录状态
- * 
- * @example
- * const status = await checkLoginStatus();
- * if (status.isLoggedIn) {
- *   console.log(`已登录，用户名: ${status.username}`);
- * } else {
- *   console.log('未登录');
- * }
  */
 export async function checkLoginStatus() {
   try {
-    // 读取配置
     const config = await readConfig();
-    
-    // 检查是否有凭证
-    if (!config.cookie || !config.bid) {
+
+    if (!config.cookie) {
       return {
         isLoggedIn: false,
-        error: '缺少登录凭证'
+        error: '未配置 Cookie，请先登录'
       };
     }
-    
-    // 验证凭证
-    const validation = await validateCredentials({
-      cookie: config.cookie,
-      xmSign: '',
-      bid: config.bid
-    });
-    
-    return { isLoggedIn: validation.success, username: validation.success ? validation.username : null, error: validation.success ? null : validation.error };
+
+    const validation = await validateCredentials(config.cookie, config.bid);
+
+    return {
+      isLoggedIn: validation.success,
+      username: validation.success ? validation.username : null,
+      error: validation.success ? null : validation.error
+    };
   } catch (error) {
     return {
       isLoggedIn: false,
@@ -396,37 +201,16 @@ export async function checkLoginStatus() {
 /**
  * 注销登录
  * @returns {Promise<Object>} 注销结果
- * 
- * @example
- * const result = await logout();
- * if (result.success) {
- *   console.log('已成功注销');
- * } else {
- *   console.error(`注销失败: ${result.error}`);
- * }
  */
 export async function logout() {
   try {
-    // 读取配置
-    const config = await readConfig();
-    
-    // 清除凭证
-    const updatedConfig = {
-      ...config,
+    await updateConfig({
       cookie: '',
       bid: ''
-    };
-    
-    // 保存配置
-    await updateConfig(updatedConfig);
-    
-    return {
-      success: true
-    };
+    });
+
+    return { success: true };
   } catch (error) {
-    return {
-      success: false,
-      error: error.message
-    };
+    return { success: false, error: error.message };
   }
 }

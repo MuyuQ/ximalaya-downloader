@@ -38,7 +38,3 @@ dist/
 *.temp
 .tmp/
 .temp/
-__pycache__/
-*.pyc
-*.sync-conflict-*
-.venv/
