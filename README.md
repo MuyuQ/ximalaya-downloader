@@ -16,7 +16,7 @@
 ## 安装
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/MuyuQ/ximalaya-downloader.git
 cd ximalaya-downloader
 npm install
 ```
