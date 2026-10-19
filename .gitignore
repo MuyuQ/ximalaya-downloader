@@ -44,3 +44,4 @@ dist/
 *.temp
 .tmp/
 .temp/
+*.sync-conflict-*
